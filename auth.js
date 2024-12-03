@@ -33,15 +33,19 @@ async function authenticate() {
 
     // Check if token.json exists
     if (!fs.existsSync(TOKEN_PATH)) {
-        // Generate the OAuth URL
+        console.log('token.json does not exist. Generating a new token...');
         const authUrl = oAuth2Client.generateAuthUrl({
             access_type: 'offline',
             scope: SCOPES,
         });
         console.log('Authorize this app by visiting this URL:', authUrl);
 
-        // Exit the script since the app needs manual authentication
+        // Exit script since the app requires manual authentication
         throw new Error('Authorization required. Visit the above URL to authenticate.');
+    } else {
+        console.log('token.json exists.');
+        const tokenContents = fs.readFileSync(TOKEN_PATH, 'utf8');
+        console.log('Contents of token.json:', tokenContents);
     }
 
     // Load the token from token.json
@@ -119,9 +123,9 @@ async function getMessageDetails(auth, messageId) {
 }
 
 async function generateSummary(content) {
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-  const prompt = `
+    const prompt = `
 Summarize the following email content with variation, avoiding repetitive language such as "The email discusses" or "The email provides." 
 If the content contains multiple ideas or topics, break them into bullet points for clarity and engagement. 
 Ensure the summary is concise and highlights key takeaways in an appealing way.
@@ -130,32 +134,29 @@ Email content:
 ${content}
 `;
 
-  try {
-      const response = await axios.post(
-          'https://api.openai.com/v1/chat/completions',
-          {
-              model: 'gpt-3.5-turbo',
-              messages: [{ role: 'user', content: prompt }],
-          },
-          {
-              headers: {
-                  Authorization: `Bearer ${OPENAI_API_KEY}`,
-                  'Content-Type': 'application/json',
-              },
-          }
-      );
+    try {
+        const response = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: 'gpt-3.5-turbo',
+                messages: [{ role: 'user', content: prompt }],
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${OPENAI_API_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
 
-      let summary = response.data.choices[0].message.content.trim();
-
-      // Post-process to ensure formatting
-      summary = summary.replace(/^- /gm, '• '); // Convert dashes to bullet points
-      return summary;
-  } catch (error) {
-      console.error('Error generating summary:', error.message);
-      return '(Unable to summarize)';
-  }
+        let summary = response.data.choices[0].message.content.trim();
+        summary = summary.replace(/^- /gm, '• '); // Convert dashes to bullet points
+        return summary;
+    } catch (error) {
+        console.error('Error generating summary:', error.message);
+        return '(Unable to summarize)';
+    }
 }
-
 
 // Resolve redirects and fetch final URLs
 async function resolveRedirect(url) {
