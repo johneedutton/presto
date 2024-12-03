@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presto</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Serif:wght@400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #F6FFE0;
+            color: #404040;
+        }
+
+        .container {
+            width: 867px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        header {
+            text-align: left;
+            margin-bottom: 30px;
+            padding-top: 60px; /* Space above logo */
+        }
+        header img {
+            height: 80px;
+        }
+        nav {
+            margin-top: 40px; /* Increased space between logo and navigation */
+            margin-bottom: 0px; /* Reduced space between navigation and horizontal rule */
+            display: flex;
+            gap: 30px;
+        }
+        nav a {
+            text-decoration: none;
+            font-size: 16px;
+            color: #4D4D4D;
+        }
+        nav a.active {
+            color: #000000;
+            font-weight: bold;
+        }
+
+        /* Horizontal rule */
+        hr {
+            border: none;
+            border-top: 1px solid #4D4D4D;
+            margin: 40px 0; /* Space around each rule */
+        }
+
+        /* Refresh Feed Button */
+        .refresh-container {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        #refreshButton {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    background-color: #000000; /* Black background */
+    color: #ffffff; /* White text */
+    border: none;
+    border-radius: 25px;
+}
+
+        /* Date Header */
+        .date-header {
+            text-align: left;
+            margin: 80px 0 10px; /* Increased space above the next date header */
+        }
+        .date-header h2 {
+            font-size: 24px;
+            color: #000;
+            margin-bottom: 5px;
+        }
+        .date-header p {
+            font-size: 16px;
+            color: #4D4D4D;
+            margin: 0 0 10px; /* Add space below date and count */
+        }
+
+        /* Newsletter styles */
+        .newsletter {
+            margin-bottom: 20px;
+        }
+        .newsletter-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .newsletter-header img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 15px;
+        }
+        .newsletter-header .info {
+            font-size: 14px;
+            color: #4D4D4D;
+            display: flex;
+            flex-direction: column;
+        }
+        .newsletter-header .info h3 {
+            font-size: 16px;
+            margin: 0;
+            color: #000000;
+        }
+        .newsletter-header .info p {
+            margin: 2px 0 0; /* Reduced spacing between sender name and time */
+        }
+        .newsletter h4 {
+            font-size: 28px; /* Increased by 60% */
+            font-weight: bold;
+            margin: 10px 0;
+            color: #000000;
+        }
+        .newsletter .summary {
+            font-family: 'Roboto Serif', serif;
+            font-size: 15px; /* Correct font size */
+            line-height: 1.75; /* Correct line spacing */
+            margin-bottom: 10px;
+        }
+        .links a {
+            display: block;
+            margin: 5px 0;
+            color: #404040;
+            text-decoration: underline; /* Underline links only in emails */
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <img src="/assets/logo.png" alt="Presto Logo">
+            <nav>
+                <a href="#" class="active">Your Newsletters</a>
+                <a href="#">Manage Subscriptions</a>
+                <a href="#">Digests</a>
+                <a href="#">Discover</a>
+            </nav>
+        </header>
+        <hr>
+
+        <!-- Refresh Feed -->
+        <div class="refresh-container">
+            <button id="refreshButton">Refresh feed</button>
+        </div>
+
+        <!-- Newsletter Section -->
+        <main id="newsletters">
+            <div class="newsletter">
+                <h4>Loading newsletters...</h4>
+            </div>
+        </main>
+    </div>
+    <script>
+        async function fetchNewsletters() {
+            try {
+                const container = document.getElementById('newsletters');
+                container.innerHTML = '<div class="newsletter"><h4>Loading newsletters...</h4></div>';
+
+                const response = await fetch('/api/newsletters');
+                if (!response.ok) throw new Error('Failed to fetch newsletters');
+                const newsletters = await response.json();
+
+                container.innerHTML = ''; // Clear existing newsletters
+
+                Object.keys(newsletters).forEach(date => {
+                    const dateHeader = document.createElement('div');
+                    dateHeader.className = 'date-header';
+                    dateHeader.innerHTML = `
+                        <h2>${new Date(date).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            month: 'long',
+                            day: 'numeric',
+                        })}</h2>
+                        <p>${newsletters[date].length} newsletters</p>
+                    `;
+                    container.appendChild(dateHeader);
+                    container.insertAdjacentHTML('beforeend', '<hr>');
+
+                    newsletters[date].forEach(email => {
+                        const limitedLinks = email.links.slice(0, 4); // Limit to 4 links
+                        const newsletterDiv = document.createElement('div');
+                        newsletterDiv.className = 'newsletter';
+                        newsletterDiv.innerHTML = `
+                            <div class="newsletter-header">
+                                <img src="${email.avatar || '/assets/avatar_icon.png'}" alt="${email.from}">
+                                <div class="info">
+                                    <h3>${email.from}</h3>
+                                    <p>${new Date(email.dateSent).toLocaleTimeString()}</p>
+                                </div>
+                            </div>
+                            <h4>${email.subject}</h4>
+                            <p class="summary">${email.summary || 'No summary available.'}</p>
+                            <div class="links">
+                                ${limitedLinks
+                                    .map(link => `
+                                        <a href="${link.url}" target="_blank" rel="noopener noreferrer">
+                                            ${link.text}
+                                        </a>
+                                    `)
+                                    .join('')}
+                            </div>
+                        `;
+                        container.appendChild(newsletterDiv);
+                        container.insertAdjacentHTML('beforeend', '<hr>'); // Add horizontal rule
+                    });
+                });
+            } catch (error) {
+                const container = document.getElementById('newsletters');
+                container.innerHTML = `<div class="newsletter"><h4 style="color: red;">${error.message}</h4></div>`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('refreshButton').addEventListener('click', fetchNewsletters);
+            fetchNewsletters();
+        });
+    </script>
+</body>
+</html>
