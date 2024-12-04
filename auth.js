@@ -1,13 +1,10 @@
 const { google } = require('googleapis');
-const fs = require('fs');
 const { DateTime } = require('luxon');
 const axios = require('axios');
 const cheerio = require('cheerio'); // For parsing HTML
-
 require('dotenv').config(); // Load environment variables
 
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
-const TOKEN_PATH = 'token.json';
 
 const NEWSLETTER_DOMAINS = [
     'substack.com',
@@ -31,26 +28,26 @@ async function authenticate() {
         credentials.redirect_uris[0]
     );
 
-    // Check if token.json exists
-    if (!fs.existsSync(TOKEN_PATH)) {
-        console.log('token.json does not exist. Generating a new token...');
-        const authUrl = oAuth2Client.generateAuthUrl({
-            access_type: 'offline',
-            scope: SCOPES,
-        });
-        console.log('Authorize this app by visiting this URL:', authUrl);
-
-        // Exit script since the app requires manual authentication
-        throw new Error('Authorization required. Visit the above URL to authenticate.');
+    if (process.env.GOOGLE_TOKEN) {
+        console.log('Using GOOGLE_TOKEN from environment variables.');
+        const token = JSON.parse(process.env.GOOGLE_TOKEN);
+        oAuth2Client.setCredentials(token);
     } else {
-        console.log('token.json exists.');
-        const tokenContents = fs.readFileSync(TOKEN_PATH, 'utf8');
-        console.log('Contents of token.json:', tokenContents);
+        console.log('GOOGLE_TOKEN not found. Falling back to local token.json...');
+        try {
+            const token = JSON.parse(fs.readFileSync('token.json', 'utf8'));
+            oAuth2Client.setCredentials(token);
+            console.log('Successfully loaded token.json locally.');
+        } catch (err) {
+            console.error('No token found. Manual authentication required.');
+            const authUrl = oAuth2Client.generateAuthUrl({
+                access_type: 'offline',
+                scope: SCOPES,
+            });
+            console.log('Authorize this app by visiting this URL:', authUrl);
+            throw new Error('Authorization required.');
+        }
     }
-
-    // Load the token from token.json
-    const token = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
-    oAuth2Client.setCredentials(token);
 
     return oAuth2Client;
 }
@@ -158,7 +155,6 @@ ${content}
     }
 }
 
-// Resolve redirects and fetch final URLs
 async function resolveRedirect(url) {
     try {
         const response = await axios.head(url, { maxRedirects: 5 });
@@ -169,7 +165,6 @@ async function resolveRedirect(url) {
     }
 }
 
-// Fetch page title for a link
 async function fetchPageTitle(url) {
     try {
         const resolvedUrl = await resolveRedirect(url); // Resolve redirects
@@ -183,7 +178,6 @@ async function fetchPageTitle(url) {
     }
 }
 
-// Infer fallback link text from URL
 function inferLinkText(url) {
     try {
         const parsedUrl = new URL(url);
@@ -195,18 +189,15 @@ function inferLinkText(url) {
     }
 }
 
-// Extract links from email content
 async function extractLinks(content) {
     const linkRegex = /(https?:\/\/[^\s]+)/g;
     const matches = content.match(linkRegex) || [];
 
-    // Deduplicate links and create objects with `text` and `url`
     const links = [...new Set(matches)].slice(0, 10);
 
-    // Fetch titles for each link
     const linkObjects = await Promise.all(
         links.map(async (url) => {
-            const text = await fetchPageTitle(url); // Fetch page title
+            const text = await fetchPageTitle(url);
             return { text, url };
         })
     );
